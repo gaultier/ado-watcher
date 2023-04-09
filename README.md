@@ -23,13 +23,13 @@ Usage of ./ado:
   -project string
         Project id on Azure DevOps
   -repositories string
-        Repositories of interest.
+        Repositories of interest (comma separated)
   -token-path string
         Path to a file containing an access token for Azure DevOps
   -user string
         User to log in with
   -users string
-        Users of interest. PRs whose creator or reviewers match at least one of those will be shown.
+        Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown
 ```
 
 

@@ -240,8 +240,8 @@ func main() {
 	projectId := flag.String("project", "", "Project id on Azure DevOps")
 	user := flag.String("user", "", "User to log in with")
 	tokenPath := flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
-	users := flag.String("users", "", "Users of interest. PRs whose creator or reviewers match at least one of those will be shown.")
-	repositoriesNames := flag.String("repositories", "", "Repositories of interest.")
+	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown")
+	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated)")
 
 	flag.Parse()
 
