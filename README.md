@@ -18,6 +18,8 @@ First, create a PAT as mentioned above. It only needs to be read-only.
 $ go build .
 $ ./ado -h
 Usage of ./ado:
+  -interval duration
+        Poll interval (default 10s)
   -organization string
         Organization on Azure DevOps
   -project string

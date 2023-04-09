@@ -118,12 +118,12 @@ func isPullRequestOfInterest(pullRequest *PullRequest, peopleOfInterestUniqueNam
 }
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
-func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher) {
+func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
 	log.Printf("Now watching PR: repositoryName%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(interval)
 	for {
 		select {
 		case <-watcher.stop:
@@ -185,12 +185,12 @@ type PullRequestWatcher struct {
 	stop chan struct{}
 }
 
-func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqueNames []string) {
+func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqueNames []string, interval time.Duration) {
 	log.Printf("Now watching repository: repositoryName=%s", repository.Name)
 
 	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
 
-	for range time.Tick(10 * time.Second) {
+	for range time.Tick(interval) {
 
 		pullRequests, err := fetchRepositoryPullRequests(baseUrl, repository.Id)
 		if err != nil {
@@ -204,7 +204,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 			if !present && isPullRequestOfInterest(&pullRequest, peopleOfInterestUniqueNames) {
 				pullRequestsToWatch[pullRequest.Id] = PullRequestWatcher{stop: make(chan struct{}, 0)}
 
-				go pollPullRequest(baseUrl, repository, pullRequest, pullRequestsToWatch[pullRequest.Id])
+				go pollPullRequest(baseUrl, repository, pullRequest, pullRequestsToWatch[pullRequest.Id], interval)
 			}
 		}
 
@@ -242,6 +242,7 @@ func main() {
 	tokenPath := flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
 	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown")
 	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated)")
+	interval := flag.Duration("interval", 10*time.Second, "Poll interval")
 
 	flag.Parse()
 
@@ -275,7 +276,7 @@ func main() {
 		if !isRepositoryOfInterest(&repository, repositoriesOfInterestNames) {
 			continue
 		}
-		go pollRepository(baseUrl, repository, peopleOfInterestUniqueNames)
+		go pollRepository(baseUrl, repository, peopleOfInterestUniqueNames, *interval)
 	}
 
 	wait := make(chan struct{}, 0)
