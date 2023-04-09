@@ -33,5 +33,3 @@ Usage of ./ado:
   -users string
         Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown
 ```
-
-

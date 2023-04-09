@@ -191,7 +191,6 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
 
 	for range time.Tick(interval) {
-
 		pullRequests, err := fetchRepositoryPullRequests(baseUrl, repository.Id)
 		if err != nil {
 			log.Printf("Failed to fetch PRs: repositoryName=%s err=%v", repository.Name, err)
