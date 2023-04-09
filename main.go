@@ -119,7 +119,7 @@ func isPullRequestOfInterest(pullRequest *PullRequest, peopleOfInterestUniqueNam
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
-	log.Printf("Now watching PR: repositoryName%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
+	log.Printf("Now watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
@@ -127,7 +127,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	for {
 		select {
 		case <-watcher.stop:
-			log.Printf("Stop watching PR: repositoryName%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
+			log.Printf("Stop watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
 			return
 		case <-ticker.C:
 			threads, err := fetchPullRequestThreads(baseUrl, repository.Id, pullRequest.Id)
