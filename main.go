@@ -124,6 +124,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	threadsDb := make(map[uint64]Thread, 10)
 
 	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-watcher.stop:
