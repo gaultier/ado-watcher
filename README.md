@@ -16,7 +16,7 @@ First, create a PAT as mentioned above. It only needs to be read-only.
 
 ```sh
 $ go build .
-$ ./ado -h                                                                                              [master]
+$ ./ado -h
 Usage of ./ado:
   -organization string
         Organization on Azure DevOps
