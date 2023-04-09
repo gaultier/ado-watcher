@@ -119,7 +119,7 @@ func isPullRequestOfInterest(pullRequest *PullRequest, peopleOfInterestUniqueNam
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher) {
-	log.Printf("Now watching PR: repository=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
+	log.Printf("Now watching PR: repositoryName%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
@@ -127,7 +127,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	for {
 		select {
 		case <-watcher.stop:
-			log.Printf("Stop watching PR: repository=%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
+			log.Printf("Stop watching PR: repositoryName%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
 			return
 		case <-ticker.C:
 			threads, err := fetchPullRequestThreads(baseUrl, repository.Id, pullRequest.Id)
@@ -186,7 +186,7 @@ type PullRequestWatcher struct {
 }
 
 func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqueNames []string) {
-	log.Printf("Now watching repository: id=%s name=%s", repository.Id, repository.Name)
+	log.Printf("Now watching repository: repositoryName=%s", repository.Name)
 
 	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
 
@@ -194,7 +194,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 
 		pullRequests, err := fetchRepositoryPullRequests(baseUrl, repository.Id)
 		if err != nil {
-			log.Printf("Failed to fetch PRs: repository=%s err=%v", repository.Id, err)
+			log.Printf("Failed to fetch PRs: repositoryName=%s err=%v", repository.Name, err)
 			continue
 		}
 
@@ -255,7 +255,7 @@ func main() {
 
 	token, err := os.ReadFile(*tokenPath)
 	if err != nil {
-		log.Fatalf("Failed to read the file %s: %v", *tokenPath, err)
+		log.Fatalf("Failed to read file: path=%s: %v", *tokenPath, err)
 	}
 	tokenStr := strings.TrimSpace(string(token))
 
