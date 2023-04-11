@@ -117,6 +117,13 @@ func isPullRequestOfInterest(pullRequest *PullRequest, peopleOfInterestUniqueNam
 	return false
 }
 
+func Str(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
 	log.Printf("\aNow watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
@@ -144,10 +151,10 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 
 				oldThread, present := threadsDb[newThread.Id]
 				if !present {
-					log.Printf("\aNew thread: repositoryName=%s pullRequestId=%d status=%v", repository.Name, pullRequest.Id, newThread.Status)
+					log.Printf("\aNew thread: repositoryName=%s pullRequestId=%d status=%s", repository.Name, pullRequest.Id, Str(newThread.Status))
 					threadsDb[newThread.Id] = newThread
 				} else if *oldThread.Status != *newThread.Status {
-					log.Printf("\aThread status changed: repositoryName=%s pullRequestId=%d oldStatus=%v newStatus=%v", repository.Name, pullRequest.Id, oldThread.Status, newThread.Status)
+					log.Printf("\aThread status changed: repositoryName=%s pullRequestId=%d oldStatus=%s newStatus=%s", repository.Name, pullRequest.Id, Str(oldThread.Status), Str(newThread.Status))
 				}
 
 				threadsDb[newThread.Id] = newThread // Update data
@@ -168,7 +175,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 					}
 
 					if oldComment == nil {
-						log.Printf("\aNew comment: repositoryName=%s pullRequestId=%d author=%s content=%v", repository.Name, pullRequest.Id, newComment.Author.DisplayName, newComment.Content)
+						log.Printf("\aNew comment: repositoryName=%s pullRequestId=%d author=%s content=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(newComment.Content))
 						continue
 					}
 
