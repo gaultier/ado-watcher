@@ -168,7 +168,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 					{ // Find old comment by id
 						for _, c := range oldThread.Comments {
 							if c.Id == newComment.Id {
-								oldComment = &newComment
+								oldComment = &c
 								break
 							}
 						}
@@ -183,6 +183,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 						log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(oldComment.Content), Str(newComment.Content))
 						continue
 					}
+
 				}
 			}
 		}
@@ -198,7 +199,9 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 
 	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
 
-	for range time.Tick(interval) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for ; true; <-ticker.C {
 		pullRequests, err := fetchRepositoryPullRequests(baseUrl, repository.Id)
 		if err != nil {
 			log.Printf("Failed to fetch PRs: repositoryName=%s err=%v", repository.Name, err)
