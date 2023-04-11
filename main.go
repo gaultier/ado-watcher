@@ -132,6 +132,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-watcher.stop:
