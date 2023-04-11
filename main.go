@@ -166,9 +166,9 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 
 					var oldComment *Comment
 					{ // Find old comment by id
-						for _, oldComment := range oldThread.Comments {
-							if oldComment.Id == newComment.Id {
-								oldComment = newComment
+						for _, c := range oldThread.Comments {
+							if c.Id == newComment.Id {
+								oldComment = &newComment
 								break
 							}
 						}
