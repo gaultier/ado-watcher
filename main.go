@@ -126,7 +126,7 @@ func Str(s *string) string {
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
-	log.Printf("\aNow watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
+	log.Printf("Now watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
@@ -135,7 +135,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	for {
 		select {
 		case <-watcher.stop:
-			log.Printf("\aStop watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
+			log.Printf("Stop watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
 			return
 		case <-ticker.C:
 			threads, err := fetchPullRequestThreads(baseUrl, repository.Id, pullRequest.Id)
@@ -151,10 +151,10 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 
 				oldThread, present := threadsDb[newThread.Id]
 				if !present {
-					log.Printf("\aNew thread: repositoryName=%s pullRequestId=%d status=%s", repository.Name, pullRequest.Id, Str(newThread.Status))
+					log.Printf("New thread: repositoryName=%s pullRequestId=%d status=%s", repository.Name, pullRequest.Id, Str(newThread.Status))
 					threadsDb[newThread.Id] = newThread
 				} else if *oldThread.Status != *newThread.Status {
-					log.Printf("\aThread status changed: repositoryName=%s pullRequestId=%d oldStatus=%s newStatus=%s", repository.Name, pullRequest.Id, Str(oldThread.Status), Str(newThread.Status))
+					log.Printf("Thread status changed: repositoryName=%s pullRequestId=%d oldStatus=%s newStatus=%s", repository.Name, pullRequest.Id, Str(oldThread.Status), Str(newThread.Status))
 				}
 
 				threadsDb[newThread.Id] = newThread // Update data
@@ -175,12 +175,12 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 					}
 
 					if oldComment == nil {
-						log.Printf("\aNew comment: repositoryName=%s pullRequestId=%d author=%s content=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(newComment.Content))
+						log.Printf("New comment: repositoryName=%s pullRequestId=%d author=%s content=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(newComment.Content))
 						continue
 					}
 
 					if oldComment.Content != nil && newComment.Content != nil && *oldComment.Content != *newComment.Content {
-						log.Printf("\aUpdated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, *oldComment.Content, *newComment.Content)
+						log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, *oldComment.Content, *newComment.Content)
 						continue
 					}
 				}
