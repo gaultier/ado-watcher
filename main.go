@@ -179,8 +179,8 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 						continue
 					}
 
-					if oldComment.Content != nil && newComment.Content != nil && *oldComment.Content != *newComment.Content {
-						log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, *oldComment.Content, *newComment.Content)
+					if Str(oldComment.Content) != Str(newComment.Content) {
+						log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(oldComment.Content), Str(newComment.Content))
 						continue
 					}
 				}
