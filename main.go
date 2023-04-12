@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
 )
 
 type ApiResponse[T any] struct {
@@ -105,11 +107,16 @@ func fetchPullRequestThreads(baseUrl string, repositoryId string, pullRequestId 
 }
 
 func isPullRequestOfInterest(pullRequest *PullRequest, peopleOfInterestUniqueNames []string) bool {
-	for _, person := range peopleOfInterestUniqueNames {
-		if person == pullRequest.CreatedBy.UniqueName {
-			return true
-		}
+	if len(peopleOfInterestUniqueNames) == 0 {
+		return true
+	}
 
+	if slices.Contains(peopleOfInterestUniqueNames, pullRequest.CreatedBy.UniqueName) {
+		return true
+	}
+
+	// Check intersection of the two slices
+	for _, person := range peopleOfInterestUniqueNames {
 		for _, reviewer := range pullRequest.Reviewers {
 			if person == reviewer.UniqueName {
 				return true
@@ -243,12 +250,10 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 }
 
 func isRepositoryOfInterest(repository *Repository, repositoriesOfInterestNames []string) bool {
-	for _, r := range repositoriesOfInterestNames {
-		if r == repository.Name {
-			return true
-		}
+	if len(repositoriesOfInterestNames) == 0 {
+		return true
 	}
-	return false
+	return slices.Contains(repositoriesOfInterestNames, repository.Name)
 }
 
 func main() {
@@ -256,19 +261,27 @@ func main() {
 	projectId := flag.String("project", "", "Project id on Azure DevOps")
 	user := flag.String("user", "", "User to log in with")
 	tokenPath := flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
+	// Optional
 	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown")
+	// Optional
 	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated)")
 	interval := flag.Duration("interval", 10*time.Second, "Poll interval")
 
 	flag.Parse()
 
-	if *organization == "" || *projectId == "" || *user == "" || *tokenPath == "" || *users == "" || *repositoriesNames == "" {
+	if *organization == "" || *projectId == "" || *user == "" || *tokenPath == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
 
 	peopleOfInterestUniqueNames := strings.Split(*users, ",")
+	if *users == "" {
+		peopleOfInterestUniqueNames = []string{}
+	}
 	repositoriesOfInterestNames := strings.Split(*repositoriesNames, ",")
+	if *repositoriesNames == "" {
+		repositoriesOfInterestNames = []string{}
+	}
 
 	token, err := os.ReadFile(*tokenPath)
 	if err != nil {
@@ -289,10 +302,9 @@ func main() {
 	}
 
 	for _, repository := range repositories {
-		if !isRepositoryOfInterest(&repository, repositoriesOfInterestNames) {
-			continue
+		if isRepositoryOfInterest(&repository, repositoriesOfInterestNames) {
+			go pollRepository(baseUrl, repository, peopleOfInterestUniqueNames, *interval)
 		}
-		go pollRepository(baseUrl, repository, peopleOfInterestUniqueNames, *interval)
 	}
 
 	wait := make(chan struct{}, 0)
