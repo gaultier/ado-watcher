@@ -227,19 +227,16 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 		}
 
 		// Detect abandoned/completed PRs
+	found:
 		for id, watching := range pullRequestsToWatch {
-			found := false
 			for _, pullRequest := range pullRequests {
 				if pullRequest.Id == id {
-					found = true
-					break
+					continue found
 				}
 			}
 
-			if !found {
-				close(watching.stop)
-				delete(pullRequestsToWatch, id)
-			}
+			close(watching.stop)
+			delete(pullRequestsToWatch, id)
 		}
 	}
 }
