@@ -160,26 +160,17 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 				continue
 			}
 
-			var oldComment *Comment
-			{ // Find old comment by id
-				for _, c := range oldThread.Comments {
-					if c.Id == newComment.Id {
-						oldComment = &c
-						break
-					}
-				}
-			}
+			if oldCommentIdx := slices.IndexFunc(oldThread.Comments, func(c Comment) bool { return c.Id == newComment.Id }); oldCommentIdx != -1 {
+				oldComment := &oldThread.Comments[oldCommentIdx]
 
-			if oldComment == nil {
+				if Str(oldComment.Content) != Str(newComment.Content) {
+					log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(oldComment.Content), Str(newComment.Content))
+					continue
+				}
+			} else {
 				log.Printf("New comment: repositoryName=%s pullRequestId=%d author=%s content=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(newComment.Content))
 				continue
 			}
-
-			if Str(oldComment.Content) != Str(newComment.Content) {
-				log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(oldComment.Content), Str(newComment.Content))
-				continue
-			}
-
 		}
 	}
 }
