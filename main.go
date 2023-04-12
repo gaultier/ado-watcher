@@ -153,7 +153,7 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 			log.Printf("Thread status changed: repositoryName=%s pullRequestId=%d oldStatus=%s newStatus=%s", repository.Name, pullRequest.Id, Str(oldThread.Status), Str(newThread.Status))
 		}
 
-		threadsDb[newThread.Id] = newThread // Update data
+		threadsDb[newThread.Id] = newThread // Update data to be able to diff later
 
 		for _, newComment := range newThread.Comments {
 			if newComment.Type == "system" { // Skip automated comments
@@ -218,7 +218,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 			_, present := pullRequestsToWatch[pullRequest.Id]
 			// Start watching
 			if !present && isPullRequestOfInterest(&pullRequest, peopleOfInterestUniqueNames) {
-				pullRequestsToWatch[pullRequest.Id] = PullRequestWatcher{stop: make(chan struct{}, 0)}
+				pullRequestsToWatch[pullRequest.Id] = PullRequestWatcher{stop: make(chan struct{})}
 
 				go pollPullRequest(baseUrl, repository, pullRequest, pullRequestsToWatch[pullRequest.Id], interval)
 			}
@@ -298,6 +298,6 @@ func main() {
 		}
 	}
 
-	wait := make(chan struct{}, 0)
+	wait := make(chan struct{})
 	<-wait
 }
