@@ -235,6 +235,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 				}
 			}
 
+			// TODO: should we query the PR one last time to get its final status?
 			close(watching.stop)
 			delete(pullRequestsToWatch, id)
 		}
