@@ -16,12 +16,14 @@ type ApiResponse[T any] struct {
 }
 
 type PullRequest struct {
-	Id          uint64   `json:"pullRequestId"`
-	CreatedBy   Person   `json:"createdBy"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Reviewers   []Person `json:"reviewers"`
-	Status      string   `json:"status"`
+	Id            uint64   `json:"pullRequestId"`
+	CreatedBy     Person   `json:"createdBy"`
+	Title         string   `json:"title"`
+	Description   string   `json:"description"`
+	Reviewers     []Person `json:"reviewers"`
+	Status        string   `json:"status"`
+	SourceRefName string   `json:"sourceRefName"`
+	TargetRefName string   `json:"targetRefName"`
 }
 
 type Person struct {
@@ -177,7 +179,7 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
-	log.Printf("Now watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status)
+	log.Printf("Now watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s sourceRefName=%s targetRefName=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status, pullRequest.SourceRefName, pullRequest.TargetRefName)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
