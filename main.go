@@ -262,9 +262,9 @@ func main() {
 	user := flag.String("user", "", "User to log in with")
 	tokenPath := flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
 	// Optional
-	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown")
+	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown. If empty, all PRs will be watched.")
 	// Optional
-	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated)")
+	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated). If empty, all repositories will be watched.")
 	interval := flag.Duration("interval", 10*time.Second, "Poll interval")
 
 	flag.Parse()

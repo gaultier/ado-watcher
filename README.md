@@ -19,17 +19,17 @@ $ go build .
 $ ./ado -h
 Usage of ./ado:
   -interval duration
-        Poll interval (default 10s)
+    	Poll interval (default 10s)
   -organization string
-        Organization on Azure DevOps
+    	Organization on Azure DevOps
   -project string
-        Project id on Azure DevOps
+    	Project id on Azure DevOps
   -repositories string
-        Repositories of interest (comma separated)
+    	Repositories of interest (comma separated). If empty, all repositories will be watched.
   -token-path string
-        Path to a file containing an access token for Azure DevOps
+    	Path to a file containing an access token for Azure DevOps
   -user string
-        User to log in with
+    	User to log in with
   -users string
-        Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown
+    	Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown. If empty, all PRs will be watched.
 ```
