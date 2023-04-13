@@ -195,7 +195,7 @@ func diffPullRequestVotes(repository *Repository, localPullRequest *PullRequest,
 			continue
 		}
 
-		if localReviewer != nil { // Existing reviewer updated its vote
+		if localReviewer != nil { // Existing reviewer updated its vote 'interestingly'
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldReviewerVote", voteToString[localReviewer.Vote]).Str("newReviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has an updated reviewer vote")
 		} else { // Newly added reviewer voted 'interestingly'
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
