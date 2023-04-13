@@ -183,8 +183,8 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 
 	threadsDb := make(map[uint64]Thread, 10)
 
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	threadsTicker := time.NewTicker(interval)
+	defer threadsTicker.Stop()
 
 	tickPullRequestThreads(baseUrl, repository, pullRequest, threadsDb)
 	for {
@@ -192,7 +192,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 		case <-watcher.stop:
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("reason", "abandoned or completed").Msg("Stop watching PR")
 			return
-		case <-ticker.C:
+		case <-threadsTicker.C:
 			tickPullRequestThreads(baseUrl, repository, pullRequest, threadsDb)
 		}
 	}
