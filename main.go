@@ -184,9 +184,11 @@ func diffPullRequestVotes(repository *Repository, localPullRequest *PullRequest,
 
 		localVote := voteAbsent
 		var localReviewer *Person
-		if idx := slices.IndexFunc(localPullRequest.Reviewers, func(p Person) bool { return p.Id == latestReviewer.Id }); idx != -1 {
-			localReviewer = &localPullRequest.Reviewers[idx]
-			localVote = int(localReviewer.Vote)
+		if localPullRequest != nil {
+			if idx := slices.IndexFunc(localPullRequest.Reviewers, func(p Person) bool { return p.Id == latestReviewer.Id }); idx != -1 {
+				localReviewer = &localPullRequest.Reviewers[idx]
+				localVote = int(localReviewer.Vote)
+			}
 		}
 
 		if localVote == int(latestReviewer.Vote) { // Same vote, uninteresting
