@@ -15,6 +15,20 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+const (
+	voteApproved                = 10
+	voteRejected                = -10
+	voteAbsent                  = 0
+	voteApprovedWithSuggestions = 5
+)
+
+var voteToString = map[int64]string{
+	voteApproved:                "approved",
+	voteRejected:                "rejected",
+	voteAbsent:                  "no vote",
+	voteApprovedWithSuggestions: "approved with suggestions",
+}
+
 type Commit struct {
 	CommitId string `json:"commitId"`
 }
@@ -36,8 +50,10 @@ type PullRequest struct {
 }
 
 type Person struct {
+	Id          string `json:"id"`
 	DisplayName string `json:"displayName"`
 	UniqueName  string `json:"uniqueName"`
+	Vote        int64  `json:"vote"`
 }
 
 type Repository struct {
@@ -220,6 +236,29 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 			if localPullRequest.LastMergeSourceCommit.CommitId != latestPullRequest.LastMergeSourceCommit.CommitId {
 				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Msg("PR has new commit(s)")
 			}
+
+			for _, latestReviewer := range latestPullRequest.Reviewers {
+				if latestReviewer.Vote == voteAbsent {
+					continue
+				}
+
+				if idx := slices.IndexFunc(localPullRequest.Reviewers, func(p Person) bool { return p.Id == latestReviewer.Id }); idx != -1 {
+					localReviewer := localPullRequest.Reviewers[idx]
+					if localReviewer.Vote != latestReviewer.Vote { // Existing reviewer changed its vote
+						log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldReviewerVote", voteToString[localReviewer.Vote]).Str("newReviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has an updated reviewer vote")
+					}
+				} else { // New reviewer added
+					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
+				}
+			}
+		}
+
+		for _, latestReviewer := range latestPullRequest.Reviewers {
+			if latestReviewer.Vote == voteAbsent {
+				continue
+			}
+			// New vote of interest (i.e. not `voteAbsent`)
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
 		}
 
 		// Stop?
