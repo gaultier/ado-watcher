@@ -251,14 +251,14 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
 				}
 			}
-		}
-
-		for _, latestReviewer := range latestPullRequest.Reviewers {
-			if latestReviewer.Vote == voteAbsent {
-				continue
+		} else {
+			for _, latestReviewer := range latestPullRequest.Reviewers {
+				if latestReviewer.Vote == voteAbsent {
+					continue
+				}
+				// New vote of interest (i.e. not `voteAbsent`)
+				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
 			}
-			// New vote of interest (i.e. not `voteAbsent`)
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
 		}
 
 		// Stop?
