@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"golang.org/x/exp/slices"
 )
@@ -136,7 +138,7 @@ func Str(s *string) string {
 func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest PullRequest, threadsDb map[uint64]Thread) {
 	threads, err := fetchPullRequestThreads(baseUrl, repository.Id, pullRequest.Id)
 	if err != nil {
-		log.Printf("Failed to fetch pull request threads: repositoryName=%s pullRequestId=%d err=%v", repository.Name, pullRequest.Id, err)
+		log.Err(err).Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Msg("Failed to fetch pull request threads")
 		return
 	}
 
@@ -147,10 +149,10 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 
 		oldThread, present := threadsDb[newThread.Id]
 		if !present {
-			log.Printf("New thread: repositoryName=%s pullRequestId=%d status=%s", repository.Name, pullRequest.Id, Str(newThread.Status))
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Msg("New thread")
 			threadsDb[newThread.Id] = newThread
 		} else if *oldThread.Status != *newThread.Status {
-			log.Printf("Thread status changed: repositoryName=%s pullRequestId=%d oldStatus=%s newStatus=%s", repository.Name, pullRequest.Id, Str(oldThread.Status), Str(newThread.Status))
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Str("oldThreadStatus", Str(oldThread.Status)).Msg("Thread status changed")
 		}
 
 		threadsDb[newThread.Id] = newThread // Update data to be able to diff later
@@ -164,11 +166,11 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 				oldComment := &oldThread.Comments[oldCommentIdx]
 
 				if Str(oldComment.Content) != Str(newComment.Content) {
-					log.Printf("Updated comment: repositoryName=%s pullRequestId=%d author=%s oldContent=%s newContent=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(oldComment.Content), Str(newComment.Content))
+					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", newComment.Author.DisplayName).Str("oldContent", Str(oldComment.Content)).Str("newContent", Str(newComment.Content)).Msg("Updated comment")
 					continue
 				}
 			} else {
-				log.Printf("New comment: repositoryName=%s pullRequestId=%d author=%s content=%s", repository.Name, pullRequest.Id, newComment.Author.DisplayName, Str(newComment.Content))
+				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", newComment.Author.DisplayName).Str("content", Str(newComment.Content)).Msg("New comment")
 				continue
 			}
 		}
@@ -177,7 +179,7 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
-	log.Printf("Now watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s description=%s status=%s sourceRefName=%s targetRefName=%s", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title, pullRequest.Description, pullRequest.Status, pullRequest.SourceRefName, pullRequest.TargetRefName)
+	log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("description", pullRequest.Description).Str("status", pullRequest.Status).Str("sourceRefName", pullRequest.SourceRefName).Str("targetRefName", pullRequest.TargetRefName).Msg("Watching PR")
 
 	threadsDb := make(map[uint64]Thread, 10)
 
@@ -188,7 +190,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	for {
 		select {
 		case <-watcher.stop:
-			log.Printf("Stop watching PR: repositoryName=%s pullRequestId=%d author=%s title=%s reason=abandoned or completed", repository.Name, pullRequest.Id, pullRequest.CreatedBy.DisplayName, pullRequest.Title)
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("reason", "abandoned or completed").Msg("Stop watching PR")
 			return
 		case <-ticker.C:
 			tickPullRequestThreads(baseUrl, repository, pullRequest, threadsDb)
@@ -201,7 +203,7 @@ type PullRequestWatcher struct {
 }
 
 func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqueNames []string, interval time.Duration) {
-	log.Printf("Now watching repository: repositoryName=%s", repository.Name)
+	log.Info().Str("repositoryName", repository.Name).Msg("Watching repository")
 
 	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
 
@@ -210,7 +212,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 	for ; true; <-ticker.C {
 		pullRequests, err := fetchRepositoryPullRequests(baseUrl, repository.Id)
 		if err != nil {
-			log.Printf("Failed to fetch PRs: repositoryName=%s err=%v", repository.Name, err)
+			log.Err(err).Str("repositoryName", repository.Name).Msg("Failed to fetch PRs")
 			continue
 		}
 
@@ -248,6 +250,8 @@ func isRepositoryOfInterest(repository *Repository, repositoriesOfInterestNames 
 }
 
 func main() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
 	organization := flag.String("organization", "", "Organization on Azure DevOps")
 	projectId := flag.String("project", "", "Project id on Azure DevOps")
 	user := flag.String("user", "", "User to log in with")
@@ -276,7 +280,7 @@ func main() {
 
 	token, err := os.ReadFile(*tokenPath)
 	if err != nil {
-		log.Fatalf("Failed to read file: path=%s: %v", *tokenPath, err)
+		log.Fatal().Err(err).Str("path", *tokenPath).Msg("Failed to read file")
 	}
 	tokenStr := strings.TrimSpace(string(token))
 
@@ -285,11 +289,11 @@ func main() {
 	repositories, err := fetchRepositories(baseUrl)
 
 	if err != nil {
-		log.Fatalf("Failed to fetch repositories: %v", err)
+		log.Fatal().Err(err).Msg("Failed to fetch repositories")
 	}
 
 	if len(repositories) == 0 {
-		log.Fatalf("No repositories found")
+		log.Fatal().Msg("No repositories found")
 	}
 
 	for _, repository := range repositories {
