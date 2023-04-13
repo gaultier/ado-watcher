@@ -212,7 +212,8 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 			continue
 		}
 
-		if localPullRequest != nil { // Diff
+		// Diff
+		if localPullRequest != nil {
 			if localPullRequest.Status != latestPullRequest.Status {
 				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldStatus", localPullRequest.Status).Str("newStatus", latestPullRequest.Status).Msg("PR changed status")
 			}
@@ -221,6 +222,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 			}
 		}
 
+		// Stop?
 		if latestPullRequest.Status == "abandoned" || latestPullRequest.Status == "completed" {
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("status", latestPullRequest.Status).Msg("Stop watching PR")
 			close(watcher.stop)
@@ -231,7 +233,6 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 	}
 }
 
-// TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
 func pollPullRequestAndThreads(baseUrl string, repository Repository, pullRequest PullRequest, interval time.Duration) {
 	log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("description", pullRequest.Description).Str("status", pullRequest.Status).Str("sourceRefName", pullRequest.SourceRefName).Str("targetRefName", pullRequest.TargetRefName).Msg("Watching PR")
 
@@ -282,16 +283,7 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 			}
 		}
 
-		// Detect abandoned/completed PRs
-	found:
-		for id := range pullRequestsToWatch {
-			for _, pullRequest := range pullRequests {
-				if pullRequest.Id == id {
-					delete(pullRequestsToWatch, id)
-					break found
-				}
-			}
-		}
+		// Remove abandoned/completed PRs from `pullRequestsToWatch` left intentionally out for simplicity.
 	}
 }
 
