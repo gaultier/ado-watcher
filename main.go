@@ -165,28 +165,28 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 		return
 	}
 
-	for _, newThread := range threads {
-		if newThread.Status == nil { // Skip threads without a status
+	for _, latestThread := range threads {
+		if latestThread.Status == nil { // Skip threads without a status
 			continue
 		}
 
-		oldThread, present := threadsDb[newThread.Id]
+		localThread, present := threadsDb[latestThread.Id]
 		if !present {
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Uint64("threadId", newThread.Id).Msg("New thread")
-			threadsDb[newThread.Id] = newThread
-		} else if Str(oldThread.Status) != Str(newThread.Status) {
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Str("oldThreadStatus", Str(oldThread.Status)).Uint64("threadId", newThread.Id).Msg("Thread status changed")
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(latestThread.Status)).Uint64("threadId", latestThread.Id).Msg("New thread")
+			threadsDb[latestThread.Id] = latestThread
+		} else if Str(localThread.Status) != Str(latestThread.Status) {
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(latestThread.Status)).Str("oldThreadStatus", Str(localThread.Status)).Uint64("threadId", latestThread.Id).Msg("Thread status changed")
 		}
 
-		threadsDb[newThread.Id] = newThread // Upsert data to be able to diff later
+		threadsDb[latestThread.Id] = latestThread // Upsert data to be able to diff later
 
-		for _, newComment := range newThread.Comments {
+		for _, newComment := range latestThread.Comments {
 			if newComment.Type == "system" { // Skip automated comments
 				continue
 			}
 
-			if oldCommentIdx := slices.IndexFunc(oldThread.Comments, func(c Comment) bool { return c.Id == newComment.Id }); oldCommentIdx != -1 {
-				oldComment := &oldThread.Comments[oldCommentIdx]
+			if oldCommentIdx := slices.IndexFunc(localThread.Comments, func(c Comment) bool { return c.Id == newComment.Id }); oldCommentIdx != -1 {
+				oldComment := &localThread.Comments[oldCommentIdx]
 
 				if Str(oldComment.Content) != Str(newComment.Content) {
 					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", newComment.Author.DisplayName).Str("oldContent", Str(oldComment.Content)).Str("newContent", Str(newComment.Content)).Msg("Updated comment")
