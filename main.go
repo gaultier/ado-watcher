@@ -149,10 +149,10 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 
 		oldThread, present := threadsDb[newThread.Id]
 		if !present {
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Msg("New thread")
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Uint64("threadId", newThread.Id).Msg("New thread")
 			threadsDb[newThread.Id] = newThread
-		} else if *oldThread.Status != *newThread.Status {
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Str("oldThreadStatus", Str(oldThread.Status)).Msg("Thread status changed")
+		} else if Str(oldThread.Status) != Str(newThread.Status) {
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Str("oldThreadStatus", Str(oldThread.Status)).Uint64("threadId", newThread.Id).Msg("Thread status changed")
 		}
 
 		threadsDb[newThread.Id] = newThread // Update data to be able to diff later
