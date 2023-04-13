@@ -174,6 +174,34 @@ func Str(s *string) string {
 	return *s
 }
 
+func diffPullRequestVotes(repository *Repository, localPullRequest *PullRequest, latestPullRequest *PullRequest) {
+	for _, latestReviewer := range latestPullRequest.Reviewers {
+		// Skip uninteresting votes.
+		// Although one interesting case would be when a new commit is pushed for an approved PR, the vote is reset and the approver needs to re-approve.
+		if latestReviewer.Vote == voteAbsent {
+			continue
+		}
+
+		localVote := voteAbsent
+		var localReviewer *Person
+		if idx := slices.IndexFunc(localPullRequest.Reviewers, func(p Person) bool { return p.Id == latestReviewer.Id }); idx != -1 {
+			localReviewer = &localPullRequest.Reviewers[idx]
+			localVote = int(localReviewer.Vote)
+		}
+
+		if localVote == int(latestReviewer.Vote) { // Same vote, uninteresting
+			continue
+		}
+
+		if localReviewer != nil { // Existing reviewer updated its vote
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldReviewerVote", voteToString[localReviewer.Vote]).Str("newReviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has an updated reviewer vote")
+		} else {
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
+
+		}
+	}
+}
+
 func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest PullRequest, threadsDb map[uint64]Thread) {
 	threads, err := fetchPullRequestThreads(baseUrl, repository.Id, pullRequest.Id)
 	if err != nil {
@@ -237,29 +265,9 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Msg("PR has new commit(s)")
 			}
 
-			for _, latestReviewer := range latestPullRequest.Reviewers {
-				if latestReviewer.Vote == voteAbsent {
-					continue
-				}
-
-				if idx := slices.IndexFunc(localPullRequest.Reviewers, func(p Person) bool { return p.Id == latestReviewer.Id }); idx != -1 {
-					localReviewer := localPullRequest.Reviewers[idx]
-					if localReviewer.Vote != latestReviewer.Vote { // Existing reviewer changed its vote
-						log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldReviewerVote", voteToString[localReviewer.Vote]).Str("newReviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has an updated reviewer vote")
-					}
-				} else { // New reviewer added
-					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
-				}
-			}
-		} else {
-			for _, latestReviewer := range latestPullRequest.Reviewers {
-				if latestReviewer.Vote == voteAbsent {
-					continue
-				}
-				// New vote of interest (i.e. not `voteAbsent`)
-				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
-			}
 		}
+
+		diffPullRequestVotes(&repository, localPullRequest, latestPullRequest)
 
 		// Stop?
 		if latestPullRequest.Status == "abandoned" || latestPullRequest.Status == "completed" {
