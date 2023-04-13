@@ -15,19 +15,24 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+type Commit struct {
+	CommitId string `json:"commitId"`
+}
+
 type ApiResponse[T any] struct {
 	Value T `json:"value"`
 }
 
 type PullRequest struct {
-	Id            uint64   `json:"pullRequestId"`
-	CreatedBy     Person   `json:"createdBy"`
-	Title         string   `json:"title"`
-	Description   string   `json:"description"`
-	Reviewers     []Person `json:"reviewers"`
-	Status        string   `json:"status"`
-	SourceRefName string   `json:"sourceRefName"`
-	TargetRefName string   `json:"targetRefName"`
+	Id                    uint64   `json:"pullRequestId"`
+	CreatedBy             Person   `json:"createdBy"`
+	Title                 string   `json:"title"`
+	Description           string   `json:"description"`
+	Reviewers             []Person `json:"reviewers"`
+	Status                string   `json:"status"`
+	SourceRefName         string   `json:"sourceRefName"`
+	TargetRefName         string   `json:"targetRefName"`
+	LastMergeSourceCommit Commit   `json:"lastMergeSourceCommit"`
 }
 
 type Person struct {
@@ -88,6 +93,24 @@ func fetchRepositoryPullRequests(baseUrl string, repositoryId string) ([]PullReq
 	}
 
 	return apiResponse.Value, nil
+}
+
+func fetchPullRequest(baseUrl string, repositoryId string, pullRequestId uint64) (*PullRequest, error) {
+	url := fmt.Sprintf("%s/git/repositories/%s/pullRequests/%d", baseUrl, repositoryId, pullRequestId)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	decoder := json.NewDecoder(resp.Body)
+	pullRequest := PullRequest{}
+	if err := decoder.Decode(&pullRequest); err != nil {
+		return nil, err
+	}
+
+	return &pullRequest, nil
 }
 
 func fetchPullRequestThreads(baseUrl string, repositoryId string, pullRequestId uint64) ([]Thread, error) {
@@ -155,7 +178,7 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(newThread.Status)).Str("oldThreadStatus", Str(oldThread.Status)).Uint64("threadId", newThread.Id).Msg("Thread status changed")
 		}
 
-		threadsDb[newThread.Id] = newThread // Update data to be able to diff later
+		threadsDb[newThread.Id] = newThread // Upsert data to be able to diff later
 
 		for _, newComment := range newThread.Comments {
 			if newComment.Type == "system" { // Skip automated comments
@@ -177,9 +200,43 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 	}
 }
 
+func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64, watcher PullRequestWatcher, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var localPullRequest *PullRequest
+	for ; true; <-ticker.C {
+		latestPullRequest, err := fetchPullRequest(baseUrl, repository.Id, pullRequestId)
+		if err != nil {
+			log.Err(err).Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Msg("Failed to fetch PR")
+			continue
+		}
+
+		if localPullRequest != nil { // Diff
+			if localPullRequest.Status != latestPullRequest.Status {
+				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldStatus", localPullRequest.Status).Str("newStatus", latestPullRequest.Status).Msg("PR changed status")
+			}
+			if localPullRequest.LastMergeSourceCommit.CommitId != latestPullRequest.LastMergeSourceCommit.CommitId {
+				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Msg("PR has new commit(s)")
+			}
+		}
+
+		if latestPullRequest.Status == "abandoned" || latestPullRequest.Status == "completed" {
+			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("status", latestPullRequest.Status).Msg("Stop watching PR")
+			close(watcher.stop)
+			return
+		}
+
+		localPullRequest = latestPullRequest
+	}
+}
+
 // TODO: stop watching abandoned/completed PRs (status=abandoned|completed)
-func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequest, watcher PullRequestWatcher, interval time.Duration) {
+func pollPullRequestAndThreads(baseUrl string, repository Repository, pullRequest PullRequest, interval time.Duration) {
 	log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("description", pullRequest.Description).Str("status", pullRequest.Status).Str("sourceRefName", pullRequest.SourceRefName).Str("targetRefName", pullRequest.TargetRefName).Msg("Watching PR")
+
+	watcher := PullRequestWatcher{stop: make(chan struct{})}
+	go pollPullRequest(baseUrl, repository, pullRequest.Id, watcher, interval)
 
 	threadsDb := make(map[uint64]Thread, 10)
 
@@ -190,7 +247,6 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequest PullRequ
 	for {
 		select {
 		case <-watcher.stop:
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("reason", "abandoned or completed").Msg("Stop watching PR")
 			return
 		case <-threadsTicker.C:
 			tickPullRequestThreads(baseUrl, repository, pullRequest, threadsDb)
@@ -203,9 +259,9 @@ type PullRequestWatcher struct {
 }
 
 func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqueNames []string, interval time.Duration) {
-	log.Info().Str("repositoryName", repository.Name).Msg("Watching repository")
+	log.Info().Str("repositoryName", repository.Name).Str("repositoryId", repository.Id).Msg("Watching repository")
 
-	pullRequestsToWatch := make(map[uint64]PullRequestWatcher, 5)
+	pullRequestsToWatch := make(map[uint64]struct{}, 5)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -220,24 +276,21 @@ func pollRepository(baseUrl string, repository Repository, peopleOfInterestUniqu
 			_, present := pullRequestsToWatch[pullRequest.Id]
 			// Start watching
 			if !present && isPullRequestOfInterest(&pullRequest, peopleOfInterestUniqueNames) {
-				pullRequestsToWatch[pullRequest.Id] = PullRequestWatcher{stop: make(chan struct{})}
+				pullRequestsToWatch[pullRequest.Id] = struct{}{}
 
-				go pollPullRequest(baseUrl, repository, pullRequest, pullRequestsToWatch[pullRequest.Id], interval)
+				go pollPullRequestAndThreads(baseUrl, repository, pullRequest, interval)
 			}
 		}
 
 		// Detect abandoned/completed PRs
 	found:
-		for id, watching := range pullRequestsToWatch {
+		for id := range pullRequestsToWatch {
 			for _, pullRequest := range pullRequests {
 				if pullRequest.Id == id {
-					continue found
+					delete(pullRequestsToWatch, id)
+					break found
 				}
 			}
-
-			// TODO: should we query the PR one last time to get its final status?
-			close(watching.stop)
-			delete(pullRequestsToWatch, id)
 		}
 	}
 }
