@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"nhooyr.io/websocket"
@@ -255,8 +254,8 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	contextToken := uuid.New()
-	u := fmt.Sprintf("https://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/negotiate?clientProtocol=1.5&contextToken=%s", *user, tokenStr, contextToken.String())
+	contextToken := `765fce10-113f-411f-9c61-1e370f82ae59`
+	u := fmt.Sprintf("https://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/negotiate?clientProtocol=1.5&contextToken=%s", *user, tokenStr, contextToken)
 	resp, err := http.Get(u)
 	if err != nil {
 		panic(err)
@@ -271,7 +270,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 
 	tok := obj["ConnectionToken"].(string)
 
-	u = fmt.Sprintf("wss://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/connect?transport=webSockets&clientProtocol=1.5&connectionToken=%s", *user, tokenStr, url.QueryEscape(tok))
+	u = fmt.Sprintf("wss://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/connect?transport=webSockets&clientProtocol=1.5&connectionToken=%s&contextToken=%s", *user, tokenStr, url.QueryEscape(tok), contextToken)
 	u += "&connectionData=%5B%7B%22name%22%3A%22pullrequestdetailhub%22%7D%5D&tid=6"
 
 	log.Printf("u=%s", u)
