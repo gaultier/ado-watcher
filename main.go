@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"nhooyr.io/websocket"
 
 	"golang.org/x/exp/slices"
 )
@@ -250,35 +255,46 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	var localPullRequest *PullRequest
+	contextToken := uuid.New()
+	u := fmt.Sprintf("https://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/negotiate?clientProtocol=1.5&contextToken=%s", *user, tokenStr, contextToken.String())
+	resp, err := http.Get(u)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	decoder := json.NewDecoder(resp.Body)
+	obj := map[string]any{}
+	err = decoder.Decode(&obj)
+	if err != nil {
+		panic(err)
+	}
+
+	tok := obj["ConnectionToken"].(string)
+
+	u = fmt.Sprintf("wss://%s:%s@dev.azure.com/advance52/_apis/88750e91-80b9-448b-932d-a55973705c13/signalr/connect?transport=webSockets&clientProtocol=1.5&connectionToken=%s", *user, tokenStr, url.QueryEscape(tok))
+	u += "&connectionData=%5B%7B%22name%22%3A%22pullrequestdetailhub%22%7D%5D&tid=6"
+
+	log.Printf("u=%s", u)
+
+	c, resp, err := websocket.Dial(context.TODO(), u, nil)
+	if err != nil {
+		r, _ := io.ReadAll(resp.Body)
+		log.Printf("resp=%s", r)
+		panic(err)
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+
+	err = c.Write(context.TODO(), websocket.MessageText, []byte(`{"H":"pullrequestdetailhub","M":"Subscribe","A":[928,"bdb14414-a0a7-41ae-a834-b9230582bf38"],"I":0}`))
+	if err != nil {
+		panic(err)
+	}
+
 	for ; true; <-ticker.C {
-		latestPullRequest, err := fetchPullRequest(baseUrl, repository.Id, pullRequestId)
+		msgType, msg, err := c.Read(context.TODO())
 		if err != nil {
-			log.Err(err).Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequestId).Msg("Failed to fetch PR")
-			continue
+			panic(err)
 		}
-
-		// Diff
-		if localPullRequest != nil {
-			if localPullRequest.Status != latestPullRequest.Status {
-				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldStatus", localPullRequest.Status).Str("newStatus", latestPullRequest.Status).Msg("PR changed status")
-			}
-			if localPullRequest.LastMergeSourceCommit.CommitId != latestPullRequest.LastMergeSourceCommit.CommitId {
-				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Msg("PR has new commit(s)")
-			}
-
-		}
-
-		diffPullRequestVotes(&repository, localPullRequest, latestPullRequest)
-
-		// Stop?
-		if latestPullRequest.Status == "abandoned" || latestPullRequest.Status == "completed" {
-			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("status", latestPullRequest.Status).Msg("Stop watching PR")
-			close(watcher.stop)
-			return
-		}
-
-		localPullRequest = latestPullRequest
+		log.Debug().Any("msgType", msgType).Str("msg", string(msg)).Msg("read")
 	}
 }
 
@@ -343,18 +359,21 @@ func isRepositoryOfInterest(repository *Repository, repositoriesOfInterestNames 
 	return slices.Contains(repositoriesOfInterestNames, repository.Name)
 }
 
+var organization = flag.String("organization", "", "Organization on Azure DevOps")
+var projectId = flag.String("project", "", "Project id on Azure DevOps")
+var user = flag.String("user", "", "User to log in with")
+var tokenPath = flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
+
+// Optional
+var users = flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown. If empty, all PRs will be watched.")
+
+// Optional
+var repositoriesNames = flag.String("repositories", "", "Repositories of interest (comma separated). If empty, all repositories will be watched.")
+var interval = flag.Duration("interval", 10*time.Second, "Poll interval")
+var tokenStr = ""
+
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
-	organization := flag.String("organization", "", "Organization on Azure DevOps")
-	projectId := flag.String("project", "", "Project id on Azure DevOps")
-	user := flag.String("user", "", "User to log in with")
-	tokenPath := flag.String("token-path", "", "Path to a file containing an access token for Azure DevOps")
-	// Optional
-	users := flag.String("users", "", "Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown. If empty, all PRs will be watched.")
-	// Optional
-	repositoriesNames := flag.String("repositories", "", "Repositories of interest (comma separated). If empty, all repositories will be watched.")
-	interval := flag.Duration("interval", 10*time.Second, "Poll interval")
 
 	flag.Parse()
 
@@ -376,7 +395,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Str("path", *tokenPath).Msg("Failed to read file")
 	}
-	tokenStr := strings.TrimSpace(string(token))
+	tokenStr = strings.TrimSpace(string(token))
 
 	baseUrl :=
 		fmt.Sprintf("https://%s:%s@dev.azure.com/%s/%s/_apis", *user, tokenStr, *organization, *projectId)
