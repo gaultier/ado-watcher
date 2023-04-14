@@ -48,4 +48,4 @@ Excerpt:
 
 ## Discarded evolutions
 
-- Using WebSockets. While Azure DevOps technically allows monitoring resources over WebSocket, the implications are non-trivial (the PAT requires more permissions, the organization id needs to be known by the user, etc), and the result is not a big gain: we still need to poll (with most WebSocket Go APIs), the format is different and arcane, and each resource needs to be actively monitored (i.e. each pull request and each thread of each pull request).
+- Using WebSockets. While Azure DevOps technically allows monitoring resources over WebSocket, the implications are non-trivial (the PAT requires more permissions, the organization id needs to be known by the user, etc), and the result is not a big gain: we still need to poll (with most WebSocket Go APIs), the format is different and arcane, and each resource needs to be actively monitored (i.e. each pull request and each thread of each pull request). See the `ws` branch.
