@@ -254,7 +254,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 	for ; true; <-ticker.C {
 		latestPullRequest, err := fetchPullRequest(baseUrl, repository.Id, pullRequestId)
 		if err != nil {
-			log.Err(err).Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Msg("Failed to fetch PR")
+			log.Err(err).Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequestId).Msg("Failed to fetch PR")
 			continue
 		}
 
