@@ -6,6 +6,8 @@ Terminal script to watch pull requests ('PR') in Azure DevOps and notify if some
 - New comment/thread
 - Comment content changed
 - Thread status changed
+- Reviewer vote added or changed (i.e. approved, rejected, etc)
+- New commit pushed
 
 It uses a [Personal Access Token (PAT)](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?toc=%2Fazure%2Fdevops%2Forganizations%2Fsecurity%2Ftoc.json&view=azure-devops&tabs=Windows), typically created in the UI, to authenticate to the REST API, which it polls continuously, and logs when a change is detected.
 
