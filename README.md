@@ -36,8 +36,12 @@ Usage of ./ado:
     	Users of interest (comma separated). PRs whose creator or reviewers match at least one of those will be shown. If empty, all PRs will be watched.
 ```
 
+Excerpt:
+
 ```
+[...]
 11:01AM INF Watching repository repositoryId=01817ec8-26a3-42e6-9267-0b7506938f23 repositoryName=xxx
 2:55PM INF PR has new commit(s) author="Gaultier Philippe" newCommit=baed70d922e4b2088620013f1edee826b514e418 oldCommit=9413a95111eaaef67c3ec5a37596c7d16a74cec8 pullRequestId=928 repositoryName=xxx title="e2e tests"
 3:05PM INF Thread status changed newThreadStatus=fixed oldThreadStatus=active pullRequestId=928 repositoryName=xxx threadId=4748
+[...]
 ```
