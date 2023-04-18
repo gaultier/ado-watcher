@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gen2brain/beeep"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -31,6 +32,7 @@ var voteToString = map[int64]string{
 
 type Commit struct {
 	CommitId string `json:"commitId"`
+	Comment  string `json:"comment"`
 }
 
 type ApiResponse[T any] struct {
@@ -197,9 +199,10 @@ func diffPullRequestVotes(repository *Repository, localPullRequest *PullRequest,
 
 		if localReviewer != nil { // Existing reviewer updated its vote 'interestingly'
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldReviewerVote", voteToString[localReviewer.Vote]).Str("newReviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has an updated reviewer vote")
+			beeep.Notify(fmt.Sprintf("Reviewer vote changed for %s", latestPullRequest.Title), fmt.Sprintf("%s: %s -> %s", latestReviewer.DisplayName, voteToString[localReviewer.Vote], voteToString[latestReviewer.Vote]), "assets/information.png")
 		} else { // Newly added reviewer voted 'interestingly'
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("reviewerVote", voteToString[latestReviewer.Vote]).Str("reviewerName", latestReviewer.DisplayName).Msg("PR has a new reviewer vote")
-
+			beeep.Notify(fmt.Sprintf("New reviewer vote for %s", latestPullRequest.Title), fmt.Sprintf("%s: %s", latestReviewer.DisplayName, voteToString[latestReviewer.Vote]), "assets/information.png")
 		}
 	}
 }
@@ -222,6 +225,7 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 			threadsDb[latestThread.Id] = latestThread
 		} else if Str(localThread.Status) != Str(latestThread.Status) {
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("newThreadStatus", Str(latestThread.Status)).Str("oldThreadStatus", Str(localThread.Status)).Uint64("threadId", latestThread.Id).Msg("Thread status changed")
+			beeep.Notify(fmt.Sprintf("Thread status changed for %s", pullRequest.Title), fmt.Sprintf("%s -> %s", Str(localThread.Status), Str(latestThread.Status)), "assets/information.png")
 		}
 
 		threadsDb[latestThread.Id] = latestThread // Upsert data to be able to diff later
@@ -236,10 +240,12 @@ func tickPullRequestThreads(baseUrl string, repository Repository, pullRequest P
 
 				if Str(oldComment.Content) != Str(newComment.Content) {
 					log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", newComment.Author.DisplayName).Str("oldContent", Str(oldComment.Content)).Str("newContent", Str(newComment.Content)).Msg("Updated comment")
+					beeep.Notify(fmt.Sprintf("Updated comment for %s", pullRequest.Title), fmt.Sprintf("%s: %s", newComment.Author.DisplayName, Str(newComment.Content)), "assets/information.png")
 					continue
 				}
 			} else {
 				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", newComment.Author.DisplayName).Str("content", Str(newComment.Content)).Msg("New comment")
+				beeep.Notify(fmt.Sprintf("New comment for %s", pullRequest.Title), fmt.Sprintf("%s: %s", newComment.Author.DisplayName, Str(newComment.Content)), "assets/information.png")
 				continue
 			}
 		}
@@ -262,9 +268,11 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 		if localPullRequest != nil {
 			if localPullRequest.Status != latestPullRequest.Status {
 				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldStatus", localPullRequest.Status).Str("newStatus", latestPullRequest.Status).Msg("PR changed status")
+				beeep.Notify(fmt.Sprintf("PR changed status: %s", latestPullRequest.Title), fmt.Sprintf("%s -> %s", localPullRequest.Status, latestPullRequest.Status), "assets/information.png")
 			}
 			if localPullRequest.LastMergeSourceCommit.CommitId != latestPullRequest.LastMergeSourceCommit.CommitId {
-				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Msg("PR has new commit(s)")
+				log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("oldCommit", localPullRequest.LastMergeSourceCommit.CommitId).Str("newCommit", latestPullRequest.LastMergeSourceCommit.CommitId).Str("newCommitComment", latestPullRequest.LastMergeSourceCommit.Comment).Msg("PR has new commit(s)")
+				beeep.Notify(fmt.Sprintf("New commits for: %s", latestPullRequest.Title), latestPullRequest.LastMergeSourceCommit.Comment, "assets/information.png")
 			}
 
 		}
@@ -274,6 +282,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 		// Stop?
 		if latestPullRequest.Status == "abandoned" || latestPullRequest.Status == "completed" {
 			log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", latestPullRequest.Id).Str("author", latestPullRequest.CreatedBy.DisplayName).Str("title", latestPullRequest.Title).Str("status", latestPullRequest.Status).Msg("Stop watching PR")
+			beeep.Notify(fmt.Sprintf("Stop watching: %s", latestPullRequest.Title), fmt.Sprintf("Status: %s", latestPullRequest.Status), "assets/information.png")
 			close(watcher.stop)
 			return
 		}
@@ -284,6 +293,7 @@ func pollPullRequest(baseUrl string, repository Repository, pullRequestId uint64
 
 func pollPullRequestAndThreads(baseUrl string, repository Repository, pullRequest PullRequest, interval time.Duration) {
 	log.Info().Str("repositoryName", repository.Name).Uint64("pullRequestId", pullRequest.Id).Str("author", pullRequest.CreatedBy.DisplayName).Str("title", pullRequest.Title).Str("description", pullRequest.Description).Str("status", pullRequest.Status).Str("sourceRefName", pullRequest.SourceRefName).Str("targetRefName", pullRequest.TargetRefName).Msg("Watching PR")
+	beeep.Notify(fmt.Sprintf("Watching: %s", pullRequest.Title), fmt.Sprintf("Author: %s\nDescription: %s", pullRequest.CreatedBy.DisplayName, pullRequest.Description), "assets/information.png")
 
 	watcher := PullRequestWatcher{stop: make(chan struct{})}
 	go pollPullRequest(baseUrl, repository, pullRequest.Id, watcher, interval)
